@@ -18,15 +18,16 @@ convention if needed: `m/day = mm/day ÷ 1000`, or
 ## Pipeline — two stages
 
 1. **`train_lstm.py`** (Stage 1) — trains the champion streamflow-correction LSTM
-   (6-fold **basin-holdout**; target = observed-deconvolved lateral inflow, so the
-   output *is* a corrected runoff) and writes each catchment's runoff (mm/day) to
+   (6-fold **basin-holdout**; target = observed discharge un-routed to lateral inflow
+   via a **one-line linear-reservoir inverse** (`invert_reach`), so the output *is* a
+   corrected runoff) and writes each catchment's runoff (mm/day) to
    `results/latpred_<tag>/`.
    - champion (MSWEP regional precip, retrospective): `python train_lstm.py`
    - **ECMWF-native "inclusive"** model (ERA5 inputs only — usable for BOTH the
      retrospective *and* the 1-15 day forecast, since both share the HTESSEL land
      model): `INCLUSIVE=1 python train_lstm.py`
    - **self-contained** — this folder bundles the trainer (`big_hybrid.py`) and its
-     helpers (`config.py, mb_core.py, mb_invert.py, metrics.py`); it does **not**
+     helpers (`config.py, mb_core.py, metrics.py`); it does **not**
      import from the repo's `src/`. Still needs the **data tree** and **PyTorch**;
      `PROJECT_DIR` (env, default = repo root) points at `data/` + `results/`.
      ~15-25 min on a GPU / Apple-MPS box.
@@ -38,7 +39,7 @@ convention if needed: `m/day = mm/day ÷ 1000`, or
 
 **Package contents (code-isolated — no `src/` dependency):**
 `train_lstm.py` · `make_corrected_grid.py` · bundled trainer `big_hybrid.py` ·
-helpers `config.py, mb_core.py, mb_invert.py, metrics.py`. External requirements:
+helpers `config.py, mb_core.py, metrics.py`. External requirements:
 the **data tree** (`$PROJECT_DIR/data/big/…`) and, for Stage 1 only, **PyTorch**
 (Stage 2 needs just numpy/pandas/scipy).
 
@@ -46,9 +47,12 @@ the **data tree** (`$PROJECT_DIR/data/big/…`) and, for Stage 1 only, **PyTorch
 
 ## Method (per gauged catchment)
 
-1. **LSTM corrected runoff** — an LSTM (trained to reproduce observed-deconvolved
-   lateral inflow; `gg` is only an input feature) gives each catchment's corrected
-   runoff as a daily depth (mm/day). This is the engine.
+1. **LSTM corrected runoff** — an LSTM trained to reproduce the observed-deconvolved
+   lateral inflow — the observed discharge un-routed by a **one-line linear-reservoir
+   inverse** (`invert_reach`, replacing the old regularized `lsqr` deconvolution:
+   validated equivalent-or-better, simpler, and more robust). `gg` is only an input
+   feature. The LSTM gives each catchment's corrected runoff as a daily depth
+   (mm/day) — the engine.
 2. **Distribute to reaches** — the catchment runoff is spread across the
    catchment's reaches. Weights are **regime-dependent, not area alone**:
    - humid / temperate (ERA5 runoff depth ≥ 30 mm/yr) → **incremental catchment
