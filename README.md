@@ -237,10 +237,7 @@ python make_corrected_grid.py
   reason this beats raw GEOGLOWS.
 - **Arid stays weak** (`r`-limited by precipitation). The lever there is better
   precip (Daymet / IMERG), not a correction operator.
-- **QM on the grid is an approximation** — exact QM is a post-routing discharge
-  operation; here it is applied in runoff space (via inverting the outlet
-  discharge). VAR is exactly routing-linear. Both are written so they can be
-  compared.
+
 
 Routing operators (`route_muskingum`, `invert_reach`, `shift_earlier`) are
 reproduced inside `make_corrected_grid.py` from the project's `forward_fix.py`, so
