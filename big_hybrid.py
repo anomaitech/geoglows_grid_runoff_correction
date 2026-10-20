@@ -349,8 +349,9 @@ for i, sid in enumerate(CAND):
         if tp.exists():
             lat_o = pd.read_parquet(tp)["lat_mm"]
         else:
-            qv = (q_o / mm).interpolate(limit=7).dropna()
-            lat_o = pd.Series(invert_reach(qv.to_numpy(), k), qv.index, name="lat_mm")
+            q_cms = q_o.interpolate(limit=7).dropna()                    # observed discharge, m3/s
+            lat_cms = invert_reach(q_cms.to_numpy(), k)                  # un-route -> lateral inflow, m3/s
+            lat_o = pd.Series(lat_cms / mm, q_cms.index, name="lat_mm")  # / catchment area -> runoff depth, mm/day
             lat_o.to_frame().to_parquet(tp)
         gg = (pr.q_gg_cms.reindex(f.index) / mm).clip(lower=0)
         if CORR_RUNOFF and sid in _TP.index:

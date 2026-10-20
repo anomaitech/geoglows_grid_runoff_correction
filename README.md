@@ -15,6 +15,46 @@ convention if needed: `m/day = mm/day ÷ 1000`, or
 
 ---
 
+## Architecture
+
+An LSTM learns the corrected runoff (trained against gauge discharge *un-routed* to a
+lateral); that runoff is then distributed, calibrated, and gridded for GEOGLOWS to route:
+
+```
+ STAGE 1 · train_lstm.py  —  learn corrected runoff
+ ───────────────────────────────────────────────────────────────────────────
+   gauge discharge  ──invert_reach──▶  lateral runoff depth ──┐
+   Q_obs (m³/s)       (reservoir⁻¹)        (mm/day)           │  = TARGET
+                                                              ▼
+   ERA5 / ECMWF forcing  ┐                               ┌──────────┐
+   GEOGLOWS discharge gg ─┼──── inputs ─────────────────▶│   LSTM   │
+   static attributes     ┘   (6-fold basin-holdout)      └────┬─────┘
+                                                              ▼
+                                         predicted lateral  =  CORRECTED RUNOFF
+                                         depth (mm/day, per catchment)
+
+ STAGE 2 · make_corrected_grid.py  —  distribute · calibrate · grid
+ ───────────────────────────────────────────────────────────────────────────
+   corrected runoff depth
+        │
+        ▼  distribute to reaches      weight = area (humid) / ROGEN (arid)
+   per-reach runoff depth
+        │
+        ▼  calibrate at gauged reaches   VAR (variance) / QM (quantile-map)
+        │
+        ▼  rasterize to 0.25° grid       gridweights (area-weighted)
+   ┌───────────────────────────┐
+   │   CORRECTED RUNOFF GRID    │   0.25°, mm/day    ◀──  the deliverable
+   └─────────────┬─────────────┘
+                 ▼  GEOGLOWS Muskingum routing   (your existing routing — unchanged)
+          corrected discharge   ──▶   KGE vs observed
+ ───────────────────────────────────────────────────────────────────────────
+   coverage tiers:  gauged reach → + calibration (~0.73)   |   ungauged → LSTM raw (~0.57)
+   forecast-ready:  train with INCLUSIVE=1 (ECMWF-native inputs) for retrospective + 1–15 day
+```
+
+---
+
 ## Pipeline — two stages
 
 1. **`train_lstm.py`** (Stage 1) — trains the champion streamflow-correction LSTM
