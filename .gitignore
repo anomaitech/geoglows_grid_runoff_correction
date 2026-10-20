@@ -1,0 +1,13 @@
+# Large / binary runoff artifacts — regenerable by running make_corrected_grid.py
+output/*.parquet
+
+# Internal research log (not part of the public deliverable)
+OVERNIGHT_REPORT.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
